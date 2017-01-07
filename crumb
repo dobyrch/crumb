@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+import os
+import sqlite3
+import sys
+from argparse import ArgumentParser
+from subprocess import run, PIPE
+
+DBFILE = '/var/lib/crumb/crumb.db'
+
+parser = ArgumentParser()
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument('-l', '--list', action='store_true')
+group.add_argument('-o', '--owns', action='store_true')
+parser.add_argument('target', metavar='TARGET')
+args = parser.parse_args()
+
+with sqlite3.connect(DBFILE) as conn:
+    rows = conn.execute('select distinct exe from paths')
+    exes = [r[0] for r in rows]
+
+packages = run(['xargs', '-0', 'pacman', '-Qoq'],
+               input='\0'.join(exes),
+               stdout=PIPE,
+               stderr=sys.stderr,
+               encoding='utf-8'
+           ).stdout.split('\n')
+
+with sqlite3.connect(DBFILE) as conn:
+    conn.execute('''create temp table packages
+        (package, exe, primary key (package, exe))
+        without rowid''')
+
+    conn.executemany('insert into packages values (?, ?)',
+        zip(packages, exes))
+
+    if args.list:
+        target = [args.target]
+        query = '''
+            select path from paths, packages
+            where paths.exe = packages.exe and packages.package = ?
+        '''
+    elif args.owns:
+        target = [os.path.abspath(args.target)]
+        query = '''
+            select package from paths, packages
+            where paths.exe = packages.exe and paths.path = ?
+        '''
+
+    for row in conn.execute(query, target):
+        print(row[0])
