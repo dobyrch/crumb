@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/fanotify.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <sqlite3.h>
 
@@ -67,12 +68,42 @@ static void store_event(int fd, sqlite3 *db)
 			}
 			fprintf(stderr, "\n");
 
-			close(m->fd);
-
 			if (strstr(path1, DELETED) || strstr(path2, DELETED) ||
 				path1[0] == '\0' || path2[0] == '\0')
 				continue;
 
+
+
+			struct stat st;
+
+
+			if (fstat(m->fd, &st) == 0) {
+				fprintf(stderr, "size: %ld\n\n", st.st_size);
+			}
+
+			if (m->mask & FAN_OPEN_PERM) {
+				fprintf(stderr, "FAN_OPEN_PERM\n");
+
+				/* Allow file to be opened */
+
+				response.fd = m->fd;
+				response.response = FAN_ALLOW;
+				write(fd, &response,
+					sizeof(struct fanotify_response));
+			}
+
+			// TThis doesn't work
+			/*
+			if (access(path1, F_OK) == 0) {
+				fprintf(stderr, "%s already exists\n", path1);
+			} else {
+				fprintf(stderr, "%s does NOT exist\n", path1);
+			}
+			*/
+
+			close(m->fd);
+
+			/*
 			sqlite3_stmt *statement = NULL;
 			const char *tail;
 
@@ -103,6 +134,7 @@ static void store_event(int fd, sqlite3 *db)
 			//fprintf(stderr, "\n");
 			//r = sqlite3_close(db);
 			//fprintf(stderr, "close: %d\n", r);
+			*/
 		}
 	}
 }
@@ -124,13 +156,13 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	fd = fanotify_init(FAN_CLASS_NOTIF, O_LARGEFILE);
+	fd = fanotify_init(FAN_CLASS_PRE_CONTENT | FD_CLOEXEC, O_RDONLY | O_LARGEFILE | O_CLOEXEC);
 	if (fd < 0) {
 		perror("fanotify_init");
 		exit(EXIT_FAILURE);
 	}
 
-	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_MOUNT, FAN_CLOSE_WRITE, -1, "/home");
+	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch");
 	if (r < 0) {
 		perror("fanotify_mark");
 		exit(EXIT_FAILURE);
@@ -151,7 +183,7 @@ int main(void)
 			exit(EXIT_FAILURE);
 		}
 
-		if (pfd->revents & POLLIN)
+		 if (pfd->revents & POLLIN)
 			store_event(fd, db);
 	}
 }
