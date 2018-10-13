@@ -5,23 +5,28 @@ import sys
 from argparse import ArgumentParser
 from subprocess import run, PIPE
 
-DBFILE = '/var/lib/crumb/crumb.db'
-
 
 def crumb_count(args):
-    pass
+    raise NotImplementedError
 
 
 def crumb_list(args):
-    pass
+    raise NotImplementedError
 
 
 def crumb_owns(args):
-    pass
+    query = '''
+        select exe from paths
+        where paths.path = ?
+    '''
+
+    with sqlite3.connect(args.dbfile) as conn:
+        for row in conn.execute(query, [args.file]):
+            print(row[0])
 
 
 def crumb_purge(args):
-    pass
+    raise NotImplementedError
 
 
 def main():
@@ -52,7 +57,7 @@ def main():
         parser.print_usage(file=sys.stderr)
         sys.exit(2)
 
-    parser.set_defaults(func=usage)
+    parser.set_defaults(func=usage, dbfile='/var/lib/crumb/crumb.db')
     args = parser.parse_args()
     args.func(args)
 
