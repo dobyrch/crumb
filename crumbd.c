@@ -13,6 +13,16 @@
 
 #define DELETED " (deleted)"
 
+static void fan_allow(int fd, int mfd)
+{
+	struct fanotify_response response;
+
+	/* Allow file to be opened */
+	response.fd = mfd;
+	response.response = FAN_ALLOW;
+	write(fd, &response, sizeof(struct fanotify_response));
+}
+
 static void store_event(int fd, sqlite3 *db)
 {
 	const struct fanotify_event_metadata *m;
@@ -22,7 +32,6 @@ static void store_event(int fd, sqlite3 *db)
 	ssize_t path_len1, path_len2;
 	char procfd_path[PATH_MAX];
 	char procexe_path[PATH_MAX];
-	struct fanotify_response response;
 
 	for (;;) {
 
@@ -42,8 +51,10 @@ static void store_event(int fd, sqlite3 *db)
 				exit(EXIT_FAILURE);
 			}
 
-			if (m->fd < 0)
+			if (m->fd < 0) {
+				fan_allow(fd, m->fd);
 				continue;
+			}
 
 			snprintf(procfd_path, sizeof(procfd_path),
 					"/proc/self/fd/%d", m->fd);
@@ -55,44 +66,43 @@ static void store_event(int fd, sqlite3 *db)
 			}
 
 			path1[path_len1] = '\0';
-			fprintf(stderr, "File %s", path1);
-
+			if (path_len2 != -1) {
+				path2[path_len2] = '\0';
+			}
 
 			snprintf(procexe_path, sizeof(procexe_path),
 					"/proc/%d/exe", m->pid);
 			path_len2 = readlink(procexe_path, path2,
 					sizeof(path2) - 1);
-			if (path_len2 != -1) {
-				path2[path_len2] = '\0';
-				fprintf(stderr, " [%s]", path2);
-			}
-			fprintf(stderr, "\n");
 
+			// TODO: don't skip if deleted, just remove it
+			// if empty after removal, log error and continue
+			// (after permitting access, that is)
 			if (strstr(path1, DELETED) || strstr(path2, DELETED) ||
-				path1[0] == '\0' || path2[0] == '\0')
+					path1[0] == '\0' || path2[0] == '\0') {
+				fan_allow(fd, m->fd);
 				continue;
-
+			}
 
 
 			struct stat st;
+			int err;
 
+			err = fstat(m->fd, &st);
+			fan_allow(fd, m->fd);
 
-			if (fstat(m->fd, &st) == 0) {
-				fprintf(stderr, "size: %ld\n\n", st.st_size);
+			if (err != 0) {
+				perror("fstat");
+				continue;
 			}
 
-			if (m->mask & FAN_OPEN_PERM) {
-				fprintf(stderr, "FAN_OPEN_PERM\n");
-
-				/* Allow file to be opened */
-
-				response.fd = m->fd;
-				response.response = FAN_ALLOW;
-				write(fd, &response,
-					sizeof(struct fanotify_response));
+			if (st.st_size != 0) {
+				continue;
 			}
 
-			// TThis doesn't work
+			fprintf(stderr, "[%s] %s\n", path2, path1);
+
+			// This doesn't work
 			/*
 			if (access(path1, F_OK) == 0) {
 				fprintf(stderr, "%s already exists\n", path1);
@@ -103,7 +113,6 @@ static void store_event(int fd, sqlite3 *db)
 
 			close(m->fd);
 
-			/*
 			sqlite3_stmt *statement = NULL;
 			const char *tail;
 
@@ -134,7 +143,6 @@ static void store_event(int fd, sqlite3 *db)
 			//fprintf(stderr, "\n");
 			//r = sqlite3_close(db);
 			//fprintf(stderr, "close: %d\n", r);
-			*/
 		}
 	}
 }
@@ -163,6 +171,18 @@ int main(void)
 	}
 
 	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch");
+	if (r < 0) {
+		perror("fanotify_mark");
+		exit(EXIT_FAILURE);
+	}
+
+	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch/.config");
+	if (r < 0) {
+		perror("fanotify_mark");
+		exit(EXIT_FAILURE);
+	}
+
+	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch/.local/share");
 	if (r < 0) {
 		perror("fanotify_mark");
 		exit(EXIT_FAILURE);
