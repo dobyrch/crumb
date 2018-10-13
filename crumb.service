@@ -1,0 +1,9 @@
+[Unit]
+Description=Crumb Daemon
+
+[Service]
+ExecStart=/home/dobyrch/Projects/crumb/crumbd
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

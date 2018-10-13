@@ -1,0 +1,9 @@
+[Trigger]
+Operation = Remove
+Type = Package
+Target = *
+
+[Action]
+When = PreTransaction
+Exec = /home/dobyrch/Projects/crumb/crumb
+NeedsTargets
