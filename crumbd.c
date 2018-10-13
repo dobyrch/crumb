@@ -188,6 +188,12 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
+	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch/.cache");
+	if (r < 0) {
+		perror("fanotify_mark");
+		exit(EXIT_FAILURE);
+	}
+
 	pfd->fd = fd;
 	pfd->events = POLLIN;
 
