@@ -227,6 +227,10 @@ void process_fanotify(int fd) {
 		printf("Created: %s\n\n", path);
 
 		/* TODO: use strnlen */
-		setxattr(path, "crumb-exe", exe_path, strlen(exe_path), 0);
+		ret = setxattr(path, "user.crumb-exe", exe_path, strlen(exe_path), 0);
+
+		if (ret == -1) {
+			perror("attr_set");
+		}
 	}
 }
