@@ -1,5 +1,5 @@
 crumbd: crumbd.c
-	clang -g -O0 crumbd.c -o crumbd -lgdbm -lgdbm_compat -lsqlite3
+	clang -g -O0 crumbd.c -o crumbd
 
 clean:
 	rm crumbd

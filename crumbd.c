@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/fanotify.h>
 #include <sys/inotify.h>
+#include <sys/xattr.h>
 #include <unistd.h>
 
 #define FAN_CREATE             0x00000100      /* Subfile was created */
@@ -277,5 +278,8 @@ void process_fanotify(int fd) {
 		*/
 
 		printf("Created: %s\n\n", path);
+
+		/* TODO: use strnlen */
+		setxattr(path, "crumb-exe", exe_path, strlen(exe_path), 0);
 	}
 }
