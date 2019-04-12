@@ -12,6 +12,9 @@
 #include <sqlite3.h>
 
 #define DELETED " (deleted)"
+#define FAN_CREATE             0x00000100      /* Subfile was created */
+#define FAN_MARK_FILESYSTEM    0x00000100
+#define FAN_REPORT_FID         0x00000200      /* Report unique file id */
 
 static void fan_allow(int fd, int mfd)
 {
@@ -164,18 +167,19 @@ int main(void)
 		exit(EXIT_FAILURE);
 	}
 
-	fd = fanotify_init(FAN_CLASS_PRE_CONTENT | FD_CLOEXEC, O_RDONLY | O_LARGEFILE | O_CLOEXEC);
+	fd = fanotify_init(FAN_REPORT_FID, 0);
 	if (fd < 0) {
 		perror("fanotify_init");
 		exit(EXIT_FAILURE);
 	}
 
-	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch");
+	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_FILESYSTEM , FAN_ONDIR|FAN_CREATE , -1, "/home/dobyrch");
 	if (r < 0) {
-		perror("fanotify_mark");
+		perror("fanotify_mark home");
 		exit(EXIT_FAILURE);
 	}
 
+/*
 	r = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_ONLYDIR, FAN_OPEN_PERM | FAN_ONDIR | FAN_EVENT_ON_CHILD, -1, "/home/dobyrch/.config");
 	if (r < 0) {
 		perror("fanotify_mark");
@@ -193,6 +197,7 @@ int main(void)
 		perror("fanotify_mark");
 		exit(EXIT_FAILURE);
 	}
+	*/
 
 	pfd->fd = fd;
 	pfd->events = POLLIN;
