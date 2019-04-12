@@ -11,7 +11,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fanotify.h>
-#include <sys/inotify.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -43,19 +42,11 @@ struct fanotify_event_info_fid {
 #define BUF_SIZE 4096
 
 void process_fanotify(int);
-void process_inotify(int);
 
 int main(int argc, char **argv)
 {
-	int fd, fdi, ret;
-	struct pollfd fds[2];
-
-	fdi = inotify_init();
-	ret = inotify_add_watch(fdi, "/home/dobyrch/.mozilla/firefox/joc9538c.default-1521425002138", IN_CREATE);
-	if (ret == -1) {
-		perror("inotify_add_watch");
-		exit(EXIT_FAILURE);
-	}
+	int fd, ret;
+	struct pollfd fds[1];
 
 
 	/* Create an fanotify file descriptor with FAN_REPORT_FID as a flag
@@ -79,9 +70,7 @@ int main(int argc, char **argv)
 	printf("Listening for events.\n");
 
 	fds[0].fd = fd;
-	fds[1].fd = fdi;
 	fds[0].events = POLLIN;
-	fds[1].events = POLLIN;
 
 	for (;;) {
 		ret = poll(fds, 2, -1);
@@ -90,59 +79,17 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 
+		if (ret == 0) {
+			printf("poll timed out\n");
+			continue;
+		}
+
+
 		if (fds[0].revents & POLLIN) {
 			process_fanotify(fds[0].fd);
-		} else if (fds[1].revents & POLLIN) {
-			process_inotify(fds[1].fd);
 		} else {
 			assert(false);
 		}
-	}
-}
-
-void process_inotify(int fd) {
-	char buf[4096] __attribute__ ((aligned(__alignof__(struct inotify_event))));
-	const struct inotify_event *event;
-	int i;
-	ssize_t len;
-	char *ptr;
-
-	/* Read some events. */
-
-	len = read(fd, buf, sizeof buf);
-	if (len == -1 && errno != EAGAIN) {
-		perror("read");
-		exit(EXIT_FAILURE);
-	}
-
-	/* If the nonblocking read() found no events to read, then
-	   it returns -1 with errno set to EAGAIN. In that case,
-	   we exit the loop. */
-
-	if (len <= 0)
-		return;
-
-	/* Loop over all events in the buffer */
-
-	for (ptr = buf; ptr < buf + len;
-			ptr += sizeof(struct inotify_event) + event->len) {
-
-		event = (const struct inotify_event *) ptr;
-
-		if ((event->mask & IN_CREATE) == 0)
-			return;
-
-		/* Print the name of the file */
-
-		if (event->len)
-			printf("I: %s ", event->name);
-
-		/* Print type of filesystem object */
-
-		if (event->mask & IN_ISDIR)
-			printf("[directory]\n");
-		else
-			printf("[file]\n");
 	}
 }
 
