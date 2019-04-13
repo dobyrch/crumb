@@ -109,9 +109,9 @@ void process_fanotify_event(int event_fd)
 		/* TODO: What are these extra eight bytes? */
 		file_name = (char *) (file_handle + 1);
 		file_name += 8;
-		file_len = strnlen(file_name, NAME_MAX);
+		file_len = strnlen(file_name, NAME_MAX + 1);
 
-		if (file_len == NAME_MAX) {
+		if (file_len > NAME_MAX) {
 			fprintf(stderr, "File name too long\n");
 			goto closefd;
 		}
