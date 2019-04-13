@@ -35,13 +35,13 @@ struct fanotify_event_info_fid {
 
 void process_fanotify_event(int event_fd)
 {
-	int ret, dir_fd;
-	ssize_t event_len, exe_len, dir_len, file_len;
+	int ret, dir_fd, file_fd;
+	ssize_t event_len, exe_len, dir_len;
 
 	char events_buf[BUF_SIZE];
 	char proc_path[PATH_MAX];
 	char exe_path[PATH_MAX];
-	char file_path[PATH_MAX];
+	char dir_path[PATH_MAX];
 	char *file_name;
 
 	struct fanotify_event_metadata *metadata;
@@ -94,47 +94,44 @@ void process_fanotify_event(int event_fd)
 		}
 
 		snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", dir_fd);
-		dir_len = readlink(proc_path, file_path, sizeof(file_path));
+		dir_len = readlink(proc_path, dir_path, sizeof(dir_path) - 1);
 
 		if (dir_len == -1) {
 			perror("readlink (dir)");
-			goto closefd;
+			goto close_dir;
 		}
+
+		dir_path[dir_len] = '\0';
+
 
 		/* TODO: What are these extra eight bytes? */
 		file_name = (char *) (file_handle + 1);
 		file_name += 8;
-		file_len = strnlen(file_name, NAME_MAX + 1);
+		file_fd = openat(dir_fd, file_name, O_RDONLY);
 
-		/* TODO: Don't mess around with appending, just use openat and fsetxattr */
-		if (file_len > NAME_MAX) {
-			fprintf(stderr, "File name too long\n");
-			goto closefd;
-		}
-
-		if (dir_len + 1 + file_len >= sizeof(file_path)) {
-			fprintf(stderr, "File path too long\n");
-			goto closefd;
-		}
-
-		file_path[dir_len] = '/';
-		strcpy(&file_path[dir_len + 1], file_name);
-
-
-		printf("Creator: %s (pid %d)\n", exe_path, metadata->pid);
-		printf("Created: %s\n\n", file_path);
-
-		ret = setxattr(file_path, "user.crumb-exe", exe_path, exe_len, 0);
-
-		if (ret == -1 ) {
+		if (file_fd == -1) {
+			/* Temporary files tend to pop in and out of existence;
+			   no need to log an error if the file is already gone */
 			if (errno != ENOENT) {
-				perror("setxattr");
+				perror("openat");
 			}
 
-			goto closefd;
+			goto close_dir;
 		}
 
-closefd:
+		printf("Creator: %s (pid %d)\n", exe_path, metadata->pid);
+		printf("Created: %s/%s\n\n", dir_path, file_name);
+
+		ret = fsetxattr(file_fd, "user.crumb-exe", exe_path, exe_len, 0);
+
+		if (ret == -1 ) {
+			perror("fsetxattr");
+			goto close_file;
+		}
+
+close_file:
+		close(file_fd);
+close_dir:
 		close(dir_fd);
 	}
 }
