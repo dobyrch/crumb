@@ -71,7 +71,7 @@ void process_fanotify_event(int event_fd)
 			exe_len = 0;
 
 			if (errno != ENOENT) {
-				perror("readlink");
+				perror("readlink (exe)");
 			}
 		}
 
@@ -97,7 +97,7 @@ void process_fanotify_event(int event_fd)
 		dir_len = readlink(proc_path, file_path, sizeof(file_path));
 
 		if (dir_len == -1) {
-			perror("readlink");
+			perror("readlink (dir)");
 			goto closefd;
 		}
 
@@ -106,6 +106,7 @@ void process_fanotify_event(int event_fd)
 		file_name += 8;
 		file_len = strnlen(file_name, NAME_MAX + 1);
 
+		/* TODO: Don't mess around with appending, just use openat and fsetxattr */
 		if (file_len > NAME_MAX) {
 			fprintf(stderr, "File name too long\n");
 			goto closefd;
