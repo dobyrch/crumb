@@ -89,7 +89,12 @@ void process_fanotify_event(int event_fd)
 		dir_fd = open_by_handle_at(AT_FDCWD, file_handle, O_RDONLY);
 
 		if (dir_fd == -1) {
-			perror("open_by_handle_at");
+			/* It's common for file handles to be deleted before
+			   we have a chance to open them; no need to clog up
+			   the logs with extraneous errors */
+			if (errno != ESTALE) {
+				perror("open_by_handle_at");
+			}
 			continue;
 		}
 
