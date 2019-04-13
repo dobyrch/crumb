@@ -102,7 +102,7 @@ void process_fanotify_event(int event_fd)
 
 		if (dir_len == -1) {
 			perror("readlink");
-			continue;
+			goto closefd;
 		}
 
 		/* TODO: What are these extra eight bytes? */
@@ -112,14 +112,12 @@ void process_fanotify_event(int event_fd)
 
 		if (file_len == NAME_MAX) {
 			fprintf(stderr, "File name too long\n");
-			close(dir_fd);
-			continue;
+			goto closefd;
 		}
 
 		if (dir_len + 1 + file_len >= sizeof(file_path)) {
 			fprintf(stderr, "File path too long\n");
-			close(dir_fd);
-			continue;
+			goto closefd;
 		}
 
 		file_path[dir_len] = '/';
@@ -133,8 +131,11 @@ void process_fanotify_event(int event_fd)
 
 		if (ret == -1) {
 			perror("setxattr");
-			continue;
+			goto closefd;
 		}
+
+closefd:
+		close(dir_fd);
 	}
 }
 
