@@ -67,19 +67,20 @@ void process_fanotify_event(int event_fd)
 
 		snprintf(proc_path, sizeof(proc_path),
 			"/proc/%d/exe", metadata->pid);
-		exe_len = readlink(proc_path, exe_path, sizeof(exe_path));
+		exe_len = readlink(proc_path, exe_path, sizeof(exe_path) - 1);
 
 		if (exe_len == -1) {
 			/* If readlink fails (most likely because the process
 			   that created the new file has already exited), then
 			   just use an empty string as the exe path */
-			exe_path[0] = '\0';
 			exe_len = 0;
 
 			if (errno != ENOENT) {
 				perror("readlink");
 			}
 		}
+
+		exe_path[exe_len] = '\0';
 
 
 		fid = (struct fanotify_event_info_fid *) (metadata + 1);
@@ -129,8 +130,11 @@ void process_fanotify_event(int event_fd)
 
 		ret = setxattr(file_path, "user.crumb-exe", exe_path, exe_len, 0);
 
-		if (ret == -1) {
-			perror("setxattr");
+		if (ret == -1 ) {
+			if (errno != ENOENT) {
+				perror("setxattr");
+			}
+
 			goto closefd;
 		}
 
