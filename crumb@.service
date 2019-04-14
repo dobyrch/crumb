@@ -2,7 +2,7 @@
 Description=Crumb Daemon
 
 [Service]
-ExecStart=/home/dobyrch/Projects/crumb/crumbd
+ExecStart=/usr/local/bin/crumbd %I
 Restart=always
 
 [Install]

@@ -31,14 +31,14 @@ struct fanotify_event_info_fid {
 };
 /* =================================================================== */
 
-#define BUF_SIZE 4096
+#define EVENT_BUF_SIZE 4096
 
-void process_fanotify_event(int event_fd)
+void process_fanotify_event(int event_fd, int mount_fd)
 {
 	int ret, dir_fd, file_fd;
 	ssize_t event_len, exe_len, dir_len;
 
-	char events_buf[BUF_SIZE];
+	char event_buf[EVENT_BUF_SIZE];
 	char proc_path[PATH_MAX];
 	char exe_path[PATH_MAX];
 	char dir_path[PATH_MAX];
@@ -49,14 +49,14 @@ void process_fanotify_event(int event_fd)
 	struct file_handle *file_handle;
 
 
-	event_len = read(event_fd, (void *) &events_buf, sizeof(events_buf));
+	event_len = read(event_fd, (void *) &event_buf, sizeof(event_buf));
 
 	if (event_len == -1) {
 		perror("read");
 		return;
 	}
 
-	for (metadata = (struct fanotify_event_metadata *) events_buf;
+	for (metadata = (struct fanotify_event_metadata *) event_buf;
 			FAN_EVENT_OK(metadata, event_len);
 			metadata = FAN_EVENT_NEXT(metadata, event_len)) {
 
@@ -86,7 +86,7 @@ void process_fanotify_event(int event_fd)
 		}
 
 		file_handle = (struct file_handle *) fid->handle;
-		dir_fd = open_by_handle_at(AT_FDCWD, file_handle, O_RDONLY);
+		dir_fd = open_by_handle_at(mount_fd, file_handle, O_RDONLY);
 
 		if (dir_fd == -1) {
 			/* It's common for file handles to be deleted before
@@ -143,23 +143,29 @@ close_dir:
 
 int main(int argc, char **argv)
 {
-	int fd, ret;
+	int event_fd, mount_fd, ret;
 
-	fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_FILENAME, 0);
-	if (fd == -1) {
+	event_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_FILENAME, 0);
+	if (event_fd == -1) {
 		perror("fanotify_init");
 		exit(EXIT_FAILURE);
 	}
 
-	ret = fanotify_mark(fd, FAN_MARK_ADD | FAN_MARK_FILESYSTEM,
+	mount_fd = open(argv[1], O_RDONLY | O_DIRECTORY);
+	if (mount_fd == -1) {
+		perror("open");
+		exit(EXIT_FAILURE);
+	}
+
+	ret = fanotify_mark(event_fd, FAN_MARK_ADD | FAN_MARK_FILESYSTEM,
 		FAN_CREATE | FAN_ONDIR,
 		AT_FDCWD, "/home");
 	if (ret == -1) {
-		perror("fanotify_mark");
+		perror(argv[1]);
 		exit(EXIT_FAILURE);
 	}
 
 	for (;;) {
-		process_fanotify_event(fd);
+		process_fanotify_event(event_fd, mount_fd);
 	}
 }
