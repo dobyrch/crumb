@@ -9,8 +9,10 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-void dumpxattr(int dir_fd, char *file_name, int recursive,
-               int path_len, char *path_list[])
+static char **path_list;
+static int recursive = 0, max_depth = 64;
+
+void dumpxattr(int dir_fd, char *file_name, int path_depth)
 {
 	int file_fd, ret, i;
 	DIR *nextdir;
@@ -37,7 +39,7 @@ void dumpxattr(int dir_fd, char *file_name, int recursive,
 	attr_len = fgetxattr(file_fd, "user.crumb-exe", attr, sizeof(attr));
 
 	if (attr_len  >= 0) {
-		for (i = 0; i < path_len; ++i) {
+		for (i = 0; i < path_depth; ++i) {
 			printf("%s/", path_list[i]);
 		}
 
@@ -66,7 +68,13 @@ void dumpxattr(int dir_fd, char *file_name, int recursive,
 			goto close_file;
 		}
 
-		path_list[path_len++] = file_name;
+		path_list[path_depth++] = file_name;
+
+		if (path_depth >= max_depth) {
+			max_depth *= 2;
+			path_list = realloc(path_list, max_depth * sizeof(char *));
+			fprintf(stderr, "Expanding to %d\n", max_depth);
+		}
 		
 		while ((entry = readdir(nextdir)) != NULL) {
 			if (strcmp(entry->d_name, ".") == 0
@@ -74,8 +82,7 @@ void dumpxattr(int dir_fd, char *file_name, int recursive,
 				continue;
 			}
 
-			dumpxattr(dirfd(nextdir), entry->d_name, recursive,
-			          path_len, path_list);
+			dumpxattr(dirfd(nextdir), entry->d_name, path_depth);
 		}
 
 		closedir(nextdir);
@@ -87,8 +94,9 @@ close_file:
 
 int main(int argc, char **argv)
 {
-	int i = 1, recursive = 0;
-	char *path_list[32];
+	int i = 1;
+
+	path_list = malloc(max_depth * sizeof(char *));
 
 	if (argc > 1 && strcmp(argv[1], "-r") == 0) {
 		recursive = 1;
@@ -96,8 +104,10 @@ int main(int argc, char **argv)
 	}
 
 	for (; i < argc; ++i) {
-		dumpxattr(AT_FDCWD, argv[i], recursive, 0, path_list);
+		dumpxattr(AT_FDCWD, argv[i], 0);
 	}
+
+	free(path_list);
 
 	return EXIT_SUCCESS;
 }
