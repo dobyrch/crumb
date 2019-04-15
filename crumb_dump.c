@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
-void dumpxattr(int dir_fd, const char *path, int recursive)
+void dumpxattr(int dir_fd, const char *dir_path, const char *file_path, int recursive)
 {
 	int file_fd, ret;
 	DIR *nextdir;
@@ -19,7 +19,7 @@ void dumpxattr(int dir_fd, const char *path, int recursive)
 	char attr[PATH_MAX];
 
 	/* NONBLOCK needed to prevent hanging when opening named pipes */
-	file_fd = openat(dir_fd, path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
+	file_fd = openat(dir_fd, file_path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW);
 
 	if (file_fd == -1) {
 		/* For now ignore ELOOP (symbolic links) and ENXIO (sockets)
@@ -27,7 +27,6 @@ void dumpxattr(int dir_fd, const char *path, int recursive)
 		   call open with O_PATH|O_NOFOLLOW to get an fd of a symlink */
 		if (errno != ELOOP && errno != ENXIO) {
 			perror("openat");
-			fprintf(stderr, "(While opening %s)\n", path);
 		}
 
 		return;
@@ -37,10 +36,12 @@ void dumpxattr(int dir_fd, const char *path, int recursive)
 	attr_len = fgetxattr(file_fd, "user.crumb-exe", attr, sizeof(attr));
 
 	if (attr_len  >= 0) {
-		printf("%s%c%.*s%c%c", path, '\0', (int)attr_len, attr, '\0', '\0');
+		if (dir_path) {
+			printf("%s/", dir_path);
+		}
+		printf("%s%c%.*s%c%c", file_path, '\0', (int)attr_len, attr, '\0', '\0');
 	} else if (errno != ENODATA) {
 		perror("fgetxattr");
-		fprintf(stderr, "path: %s\n", path);
 	}
 
 
@@ -49,7 +50,6 @@ void dumpxattr(int dir_fd, const char *path, int recursive)
 
 		if (ret == -1) {
 			perror("stat");
-			fprintf(stderr, "path: %s\n", path);
 			goto close_file;
 		}
 
@@ -71,7 +71,7 @@ void dumpxattr(int dir_fd, const char *path, int recursive)
 				continue;
 			}
 
-			dumpxattr(dirfd(nextdir), entry->d_name, recursive);
+			dumpxattr(dirfd(nextdir), file_path, entry->d_name, recursive);
 		}
 
 		closedir(nextdir);
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 	}
 
 	for (; i < argc; ++i) {
-		dumpxattr(AT_FDCWD, argv[i], recursive);
+		dumpxattr(AT_FDCWD, NULL, argv[i], recursive);
 	}
 
 	return EXIT_SUCCESS;
