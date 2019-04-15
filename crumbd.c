@@ -38,12 +38,11 @@ struct fanotify_event_info_fid {
 void process_fanotify_event(int event_fd, int mount_fd)
 {
 	int ret, dir_fd, file_fd;
-	ssize_t event_len, exe_len, dir_len;
+	ssize_t event_len, exe_len;
 
 	char event_buf[EVENT_BUF_SIZE];
 	char proc_path[PATH_MAX];
 	char exe_path[PATH_MAX];
-	char dir_path[PATH_MAX];
 	char *file_name;
 
 	struct fanotify_event_metadata *metadata;
@@ -73,7 +72,7 @@ void process_fanotify_event(int event_fd, int mount_fd)
 			exe_len = 0;
 
 			if (errno != ENOENT) {
-				perror("readlink (exe)");
+				perror("readlink");
 			}
 		}
 
@@ -100,20 +99,12 @@ void process_fanotify_event(int event_fd, int mount_fd)
 			continue;
 		}
 
-		snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", dir_fd);
-		dir_len = readlink(proc_path, dir_path, sizeof(dir_path) - 1);
-
-		if (dir_len == -1) {
-			perror("readlink (dir)");
-			goto close_dir;
-		}
-
-		dir_path[dir_len] = '\0';
-
 
 		/* TODO: What are these extra eight bytes? */
 		file_name = (char *) (file_handle + 1);
 		file_name += 8;
+		printf("%s (pid %d) created %s\n", exe_path, metadata->pid, file_name);
+
 		file_fd = openat(dir_fd, file_name, O_RDONLY);
 
 		if (file_fd == -1) {
@@ -126,8 +117,6 @@ void process_fanotify_event(int event_fd, int mount_fd)
 			goto close_dir;
 		}
 
-		printf("Creator: %s (pid %d)\n", exe_path, metadata->pid);
-		printf("Created: %s/%s\n\n", dir_path, file_name);
 
 		ret = fsetxattr(file_fd, "user.crumb-exe", exe_path, exe_len, 0);
 
