@@ -10,7 +10,7 @@
 #include <sys/xattr.h>
 
 static char **path_list;
-static int recursive = 0, max_depth = 64;
+static int recursive = 0, max_depth = 64, status = EXIT_SUCCESS;
 
 void dumpxattr(int dir_fd, char *file_name, int path_depth)
 {
@@ -30,6 +30,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 		   call open with O_PATH|O_NOFOLLOW to get an fd of a symlink */
 		if (errno != ELOOP && errno != ENXIO) {
 			perror("openat");
+			status = EXIT_FAILURE;
 		}
 
 		return;
@@ -46,6 +47,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 		printf("%s%c%.*s%c%c", file_name, '\0', (int)attr_len, attr, '\0', '\0');
 	} else if (errno != ENODATA) {
 		perror("fgetxattr");
+		status = EXIT_FAILURE;
 	}
 
 
@@ -54,6 +56,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 
 		if (ret == -1) {
 			perror("stat");
+			status = EXIT_FAILURE;
 			goto close_file;
 		}
 
@@ -65,6 +68,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 
 		if (nextdir == NULL) {
 			perror("fdopendir");
+			status = EXIT_FAILURE;
 			goto close_file;
 		}
 
@@ -73,7 +77,12 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 		if (path_depth >= max_depth) {
 			max_depth *= 2;
 			path_list = realloc(path_list, max_depth * sizeof(char *));
-			fprintf(stderr, "Expanding to %d\n", max_depth);
+
+			if (path_list == NULL) {
+				perror("realloc");
+				status = EXIT_FAILURE;
+				goto close_file;
+			}
 		}
 		
 		while ((entry = readdir(nextdir)) != NULL) {
@@ -98,6 +107,11 @@ int main(int argc, char **argv)
 
 	path_list = malloc(max_depth * sizeof(char *));
 
+	if (path_list == NULL) {
+		perror("malloc");
+		return EXIT_FAILURE;
+	}
+
 	if (argc > 1 && strcmp(argv[1], "-r") == 0) {
 		recursive = 1;
 		++i;
@@ -109,5 +123,5 @@ int main(int argc, char **argv)
 
 	free(path_list);
 
-	return EXIT_SUCCESS;
+	return status;
 }
