@@ -136,15 +136,20 @@ int main(int argc, char **argv)
 {
 	int event_fd, mount_fd, ret;
 
-	event_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_FILENAME, 0);
-	if (event_fd == -1) {
-		perror("fanotify_init");
+	if (argc != 2) {
+		fprintf(stderr, "Usage: %s DIRECTORY\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 
 	mount_fd = open(argv[1], O_RDONLY | O_DIRECTORY);
 	if (mount_fd == -1) {
 		perror("open");
+		exit(EXIT_FAILURE);
+	}
+
+	event_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_FILENAME, 0);
+	if (event_fd == -1) {
+		perror("fanotify_init");
 		exit(EXIT_FAILURE);
 	}
 
