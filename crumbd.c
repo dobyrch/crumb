@@ -6,7 +6,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <linux/limits.h>
 #include <sys/fanotify.h>
+#include <sys/types.h>
 #include <sys/xattr.h>
 
 /* TODO: Delete these definitions once they're provided by the headers */
