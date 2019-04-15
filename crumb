@@ -1,65 +1,28 @@
 #!/usr/bin/env python3
 import os
-import sqlite3
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
+from pathlib import Path
 from subprocess import run, PIPE
-
-
-def crumb_count(args):
-    raise NotImplementedError
-
-
-def crumb_list(args):
-    raise NotImplementedError
-
-
-def crumb_owns(args):
-    query = '''
-        select exe from paths
-        where paths.path = ?
-    '''
-
-    with sqlite3.connect(args.dbfile) as conn:
-        for row in conn.execute(query, [args.file]):
-            print(row[0])
-
-
-def crumb_purge(args):
-    raise NotImplementedError
 
 
 def main():
     parser = ArgumentParser()
-    subparsers = parser.add_subparsers()
 
-    parser_count = subparsers.add_parser('count')
-    parser_count.add_argument('--installed', action='store_true')
-    parser_count.add_argument('--package', action='store_true')
-    parser_count.add_argument('--total', action='store_true')
-    parser_count.set_defaults(func=crumb_count)
+    parser.add_argument('--recursive', action='store_true')
+    parser.add_argument('--count', action='store_true')
 
-    parser_list = subparsers.add_parser('list')
-    parser_list.add_argument('--null', '-0', action='store_true')
-    parser_list.add_argument('--multi', action='store_true')
-    parser_list.set_defaults(func=crumb_list)
+    parser.add_argument('--installed', action='store_true')
+    parser.add_argument('--available', action='store_true')
+    parser.add_argument('--missing', action='store_true')
 
-    parser_owns = subparsers.add_parser('owns')
-    parser_owns.add_argument('--installed', action='store_true')
-    parser_owns.add_argument('--package', action='store_true')
-    parser_owns.add_argument('file')
-    parser_owns.set_defaults(func=crumb_owns)
+    parser.add_argument('paths', metavar='FILE', nargs='+', type=Path)
 
-    parser_purge = subparsers.add_parser('purge')
-    parser_purge.set_defaults(func=crumb_purge)
-
-    def usage(_):
-        parser.print_usage(file=sys.stderr)
-        sys.exit(2)
-
-    parser.set_defaults(func=usage, dbfile='/var/lib/crumb/crumb.db')
     args = parser.parse_args()
-    args.func(args)
+
+    for path in args.paths:
+        if not path.exists():
+            print(f'{path} does not exist', file=sys.stderr)
 
 
 if __name__ == '__main__':
