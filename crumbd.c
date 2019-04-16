@@ -90,9 +90,9 @@ void process_fanotify_event(int event_fd, int mount_fd)
 		dir_fd = open_by_handle_at(mount_fd, file_handle, O_RDONLY);
 
 		if (dir_fd == -1) {
-			/* It's common for file handles to be deleted before
-			   we have a chance to open them; no need to clog up
-			   the logs with extraneous errors */
+			/* It's not uncommon for file handles to be deleted
+			   before we have a chance to open them; no need to
+			   clog up the logs with extraneous errors */
 			if (errno != ESTALE) {
 				perror("open_by_handle_at");
 			}
@@ -142,12 +142,14 @@ int main(int argc, char **argv)
 	}
 
 	mount_fd = open(argv[1], O_RDONLY | O_DIRECTORY);
+
 	if (mount_fd == -1) {
 		perror("open");
 		exit(EXIT_FAILURE);
 	}
 
 	event_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_FID | FAN_REPORT_FILENAME, 0);
+
 	if (event_fd == -1) {
 		perror("fanotify_init");
 		exit(EXIT_FAILURE);
@@ -156,6 +158,7 @@ int main(int argc, char **argv)
 	ret = fanotify_mark(event_fd, FAN_MARK_ADD | FAN_MARK_FILESYSTEM,
 		FAN_CREATE | FAN_ONDIR,
 		AT_FDCWD, "/home");
+
 	if (ret == -1) {
 		perror(argv[1]);
 		exit(EXIT_FAILURE);
