@@ -29,7 +29,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 		   once the daemon supports setting attrs on symlinks, then
 		   call open with O_PATH|O_NOFOLLOW to get an fd of a symlink */
 		if (errno != ELOOP && errno != ENXIO) {
-			perror("openat");
+			fprintf(stderr, "%s: %s\n", file_name, strerror(errno));
 			status = EXIT_FAILURE;
 		}
 
@@ -44,7 +44,7 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 			printf("%s/", path_list[i]);
 		}
 
-		printf("%s%c%.*s%c%c", file_name, '\0', (int)attr_len, attr, '\0', '\0');
+		printf("%s%c%.*s%c", file_name, '\0', (int)attr_len, attr, '\0');
 	} else if (errno != ENODATA) {
 		perror("fgetxattr");
 		status = EXIT_FAILURE;
