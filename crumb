@@ -47,13 +47,12 @@ def main(args):
             if not owners or exe in owners:
                 write(str(count).rjust(pad, ' '), exe)
     else:
-        pad = len(max(exes, key=len))
 
         for exe, f in crumbs:
             if not exe:
                 exe = b'(unknown)'
             if not owners or exe in owners:
-                write(exe.ljust(pad, b' '), f, sep='    ')
+                write(exe, 'created', f)
 
     if process.stderr:
         fail(stderr)
@@ -91,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--count', action='store_true')
     parser.add_argument('--package', action='store_true')
     parser.add_argument('--hook', action='store_true')
+    parser.add_argument('--null', action='store_true')
 
     parser.add_argument('--installed', action='store_true')
     parser.add_argument('--available', action='store_true')
