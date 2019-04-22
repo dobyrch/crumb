@@ -8,7 +8,7 @@ from subprocess import run, PIPE
 
 
 def main(args):
-    cmdline = ['./crumb_dump']
+    cmdline = ['crumb_dump']
 
     if args.recursive:
         cmdline.append('-r')
@@ -33,21 +33,27 @@ def main(args):
     exes = stdout[1::2]
     crumbs = sorted(zip(exes, files))
 
+    owners = set()
+    if args.hook:
+        owners = set(b'/' + path for path in sys.stdin.buffer.read().splitlines())
+
     if args.count:
-        counts = Counter(exes).most_common()
+        counts =Counter(exes).most_common()
         pad = len(str(counts[0][1]))
 
         for exe, count in counts:
             if not exe:
                 exe = b'(unknown)'
-            write(str(count).rjust(pad, ' '), exe)
+            if not owners or exe in owners:
+                write(str(count).rjust(pad, ' '), exe)
     else:
         pad = len(max(exes, key=len))
 
         for exe, f in crumbs:
             if not exe:
                 exe = b'(unknown)'
-            write(exe.ljust(pad, b' '), f, sep='    ')
+            if not owners or exe in owners:
+                write(exe.ljust(pad, b' '), f, sep='    ')
 
     if process.stderr:
         fail(stderr)
@@ -84,10 +90,12 @@ if __name__ == '__main__':
     parser.add_argument('--recursive', action='store_true')
     parser.add_argument('--count', action='store_true')
     parser.add_argument('--package', action='store_true')
+    parser.add_argument('--hook', action='store_true')
 
     parser.add_argument('--installed', action='store_true')
     parser.add_argument('--available', action='store_true')
     parser.add_argument('--missing', action='store_true')
+
 
     parser.add_argument('paths', metavar='FILE', nargs='+')
 

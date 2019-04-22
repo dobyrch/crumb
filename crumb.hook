@@ -1,9 +1,10 @@
 [Trigger]
 Operation = Remove
-Type = Package
+Type = File
 Target = *
 
 [Action]
+Description = Searching for crumbs...
 When = PreTransaction
-Exec = /home/dobyrch/Projects/crumb/crumb
+Exec = /home/dobyrch/Projects/crumb/crumb --hook --count --recursive /home/dobyrch
 NeedsTargets
