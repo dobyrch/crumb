@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,8 +10,9 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 
+static int status = EXIT_SUCCESS;
+static int recursive = 0, alloc_depth = 64, max_depth;
 static char **path_list;
-static int recursive = 0, max_depth = 64, status = EXIT_SUCCESS;
 
 void dumpxattr(int dir_fd, char *file_name, int path_depth)
 {
@@ -46,12 +48,13 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 
 		printf("%s%c%.*s%c", file_name, '\0', (int)attr_len, attr, '\0');
 	} else if (errno != ENODATA) {
+		/* TODO: swap perror for null-terminated fprintf */
 		perror("fgetxattr");
 		status = EXIT_FAILURE;
 	}
 
 
-	if (recursive) {
+	if (recursive && path_depth < max_depth) {
 		ret = fstat(file_fd, &statbuf);
 
 		if (ret == -1) {
@@ -74,9 +77,9 @@ void dumpxattr(int dir_fd, char *file_name, int path_depth)
 
 		path_list[path_depth++] = file_name;
 
-		if (path_depth >= max_depth) {
-			max_depth *= 2;
-			path_list = realloc(path_list, max_depth * sizeof(char *));
+		if (path_depth >= alloc_depth) {
+			alloc_depth *= 2;
+			path_list = realloc(path_list, alloc_depth * sizeof(char *));
 
 			if (path_list == NULL) {
 				perror("realloc");
@@ -103,21 +106,28 @@ close_file:
 
 int main(int argc, char **argv)
 {
-	int i = 1;
+	int opt, i;
 
-	path_list = malloc(max_depth * sizeof(char *));
+	while ((opt = getopt(argc, argv, "r::")) != -1) {
+		switch (opt) {
+		case 'r':
+			recursive = 1;
+			max_depth = optarg ? atoi(optarg) : INT_MAX;
+			break;
+		case '?':
+			/* getopt prints an error message to stdout */
+			return EXIT_FAILURE;
+		}
+	}
+
+	path_list = malloc(alloc_depth * sizeof(char *));
 
 	if (path_list == NULL) {
 		perror("malloc");
 		return EXIT_FAILURE;
 	}
 
-	if (argc > 1 && strcmp(argv[1], "-r") == 0) {
-		recursive = 1;
-		++i;
-	}
-
-	for (; i < argc; ++i) {
+	for (i = optind; i < argc; ++i) {
 		dumpxattr(AT_FDCWD, argv[i], 0);
 	}
 
