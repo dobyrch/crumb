@@ -43,7 +43,7 @@ void process_fanotify_event(int event_fd, int mount_fd)
 	char event_buf[EVENT_BUF_SIZE];
 	char proc_path[PATH_MAX];
 	char exe_path[PATH_MAX];
-	char *file_name;
+	char *file_name, *deleted, *next;
 
 	struct fanotify_event_metadata *metadata;
 	struct fanotify_event_info_fid *fid;
@@ -77,6 +77,15 @@ void process_fanotify_event(int event_fd, int mount_fd)
 		}
 
 		exe_path[exe_len] = '\0';
+		deleted = exe_path;
+
+		while ((next = strstr(deleted, " (deleted")) != NULL) {
+			deleted = next;
+		}
+
+		if (deleted != exe_path) {
+			*deleted = '\0';
+		}
 
 
 		fid = (struct fanotify_event_info_fid *) (metadata + 1);
