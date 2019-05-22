@@ -79,8 +79,9 @@ void process_fanotify_event(int event_fd, int mount_fd)
 		exe_path[exe_len] = '\0';
 		deleted = exe_path;
 
-		while ((next = strstr(deleted, " (deleted")) != NULL) {
+		while ((next = strstr(deleted, " (deleted)")) != NULL) {
 			deleted = next;
+			++next;
 		}
 
 		if (deleted != exe_path) {
