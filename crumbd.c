@@ -109,9 +109,7 @@ void process_fanotify_event(int event_fd, int mount_fd)
 		}
 
 
-		/* TODO: What are these extra eight bytes? */
-		file_name = (char *) (file_handle + 1);
-		file_name += 8;
+		file_name = (char *) (file_handle->f_handle + file_handle->handle_bytes);
 		printf("%s (pid %d) created %s\n", exe_path, metadata->pid, file_name);
 
 		file_fd = openat(dir_fd, file_name, O_RDONLY);
