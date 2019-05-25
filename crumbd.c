@@ -14,7 +14,6 @@
 /* TODO: Delete these definitions once they're provided by the headers */
 /* =================================================================== */
 #define FAN_CREATE              0x00000100
-#define FAN_MARK_FILESYSTEM     0x00000100
 #define FAN_REPORT_FID          0x00000200
 #define FAN_REPORT_FILENAME     0x00000400
 
@@ -60,6 +59,11 @@ void process_fanotify_event(int event_fd, int mount_fd)
 	for (metadata = (struct fanotify_event_metadata *) event_buf;
 			FAN_EVENT_OK(metadata, event_len);
 			metadata = FAN_EVENT_NEXT(metadata, event_len)) {
+
+		if (metadata->vers != FANOTIFY_METADATA_VERSION) {
+			fprintf(stderr, "Mismatch of fanotify metadata version.\n");
+			exit(EXIT_FAILURE);
+		}
 
 		snprintf(proc_path, sizeof(proc_path),
 			"/proc/%d/exe", metadata->pid);
