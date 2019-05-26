@@ -1,9 +1,8 @@
 [Unit]
-Description=Crumb Daemon
+Description=crumb daemon
 
 [Service]
 ExecStart=/usr/local/bin/crumbd %I
-Restart=always
 
 [Install]
 WantedBy=multi-user.target
