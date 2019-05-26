@@ -168,8 +168,7 @@ int main(int argc, char **argv)
 	}
 
 	ret = fanotify_mark(event_fd, FAN_MARK_ADD | FAN_MARK_FILESYSTEM,
-		FAN_CREATE | FAN_ONDIR,
-		AT_FDCWD, "/home");
+		FAN_CREATE | FAN_ONDIR, AT_FDCWD, argv[1]);
 
 	if (ret == -1) {
 		perror(argv[1]);
