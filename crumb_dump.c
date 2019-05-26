@@ -17,13 +17,13 @@ int printxattr(const char *path, const struct stat *stat, int type, struct FTW *
 	char attr[PATH_MAX];
 
 
-	attr_len = getxattr(path, "user.crumb-exe", attr, sizeof(attr));
+	attr_len = lgetxattr(path, "user.crumb-exe", attr, sizeof(attr));
 
 	if (attr_len  >= 0) {
 		printf("%s%c%.*s%c", path, '\0', (int)attr_len, attr, '\0');
 	} else if (errno != ENODATA) {
 		/* TODO: swap perror for null-terminated fprintf */
-		perror("fgetxattr");
+		perror("lgetxattr");
 		fprintf(stderr, "%s\n", path);
 		status = EXIT_FAILURE;
 	}
@@ -55,8 +55,7 @@ int main(int argc, char **argv)
 	}
 
 	for (i = optind; i < argc; ++i) {
-		/* TODO: WHY IS IT TRYING TO FOLLOW LINKS???? */
-		nftw(argv[i], printxattr, rlimit.rlim_cur, FTW_PHYS);
+		nftw(argv[i], printxattr, rlimit.rlim_cur - 3, FTW_PHYS);
 	}
 
 	return status;
