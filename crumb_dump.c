@@ -22,7 +22,7 @@ int printxattr(const char *path, const struct stat *stat, int type, struct FTW *
 		return FTW_SKIP_SIBLINGS;
 	}
 
-	attr_len = lgetxattr(path, "user.crumb-exe", attr, sizeof(attr));
+	attr_len = lgetxattr(&path[ftw->base], "user.crumb-exe", attr, sizeof(attr));
 
 	if (attr_len  >= 0) {
 		printf("%s%c%.*s%c", path, '\0', (int) attr_len, attr, '\0');
@@ -60,7 +60,8 @@ int main(int argc, char **argv)
 	}
 
 	for (i = optind; i < argc; ++i) {
-		nftw(argv[i], printxattr, rlimit.rlim_cur / 2, FTW_PHYS | FTW_ACTIONRETVAL);
+		nftw(argv[i], printxattr, rlimit.rlim_cur / 2,
+			FTW_PHYS | FTW_ACTIONRETVAL | FTW_CHDIR);
 	}
 
 	return error_message_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
