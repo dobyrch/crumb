@@ -11,6 +11,8 @@
 #include <sys/resource.h>
 #include <sys/xattr.h>
 
+#define USAGE "\nUsage: %s [-r[DEPTH]] FILE..."
+
 static long max_depth = 0;
 
 int printxattr(const char *path, const struct stat *stat, int type, struct FTW *ftw)
@@ -35,24 +37,30 @@ int printxattr(const char *path, const struct stat *stat, int type, struct FTW *
 
 int main(int argc, char **argv)
 {
-	int opt, i;
+	int opt, i, ret;
 	char *endptr;
 	struct rlimit rlimit;
 
-	while ((opt = getopt(argc, argv, "r::")) != -1) {
+	while ((opt = getopt(argc, argv, ":r::")) != -1) {
 		switch (opt) {
 		case 'r':
 			max_depth = optarg ? strtol(optarg, &endptr, 10) : LONG_MAX;
 
-			if (optarg && *endptr != '\0') {
-				error(EXIT_FAILURE, 0, "invalid depth '%s'", optarg);
+			if (optarg && (max_depth < 0 || *endptr != '\0')) {
+				error(EXIT_FAILURE, 0, "Invalid recursion depth -- '%s'"
+					USAGE, optarg, program_invocation_short_name);
 			}
 
 			break;
 		case '?':
-			/* getopt prints an error message to stdout */
-			return EXIT_FAILURE;
+			error(EXIT_FAILURE, 0, "Invalid option -- '%c'" USAGE,
+				optopt, program_invocation_short_name);
 		}
+	}
+
+	if (optind >= argc) {
+		error(EXIT_FAILURE, 0, "Missing file operand" USAGE,
+			program_invocation_short_name);
 	}
 
 	if (getrlimit(RLIMIT_NOFILE, &rlimit) == -1) {
@@ -60,8 +68,12 @@ int main(int argc, char **argv)
 	}
 
 	for (i = optind; i < argc; ++i) {
-		nftw(argv[i], printxattr, rlimit.rlim_cur / 2,
-			FTW_PHYS | FTW_ACTIONRETVAL | FTW_CHDIR);
+		ret = nftw(argv[i], printxattr, rlimit.rlim_cur / 2,
+			FTW_CHDIR | FTW_PHYS | FTW_ACTIONRETVAL);
+
+		if (ret == -1) {
+			error(0, errno, "%s", argv[i]);
+		}
 	}
 
 	return error_message_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
